@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classic 15-Puzzle</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 5vw, 2.4rem);
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: #7f8c8d;
+      margin-bottom: 18px;
+    }
+
+    #stats {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 18px;
+      font-size: 1.05rem;
+    }
+
+    #stats span { font-weight: bold; color: #2980b9; }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      width: min(92vw, 390px);
+      height: min(92vw, 390px);
+      background: #34495e;
+      padding: 12px;
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+
+    .tile {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: clamp(1.2rem, 5.5vw, 1.9rem);
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      background: #ecf0f1;
+      color: #2c3e50;
+      box-shadow: inset 0 -4px 0 #bdc3c7, 0 3px 6px rgba(0,0,0,0.2);
+      transition: transform 0.1s, background 0.15s;
+    }
+
+    .tile:hover { background: #d5dbdb; transform: translateY(-2px); }
+
+    .tile.empty {
+      background: transparent;
+      box-shadow: none;
+      cursor: default;
+    }
+    .tile.empty:hover { background: transparent; transform: none; }
+
+    #message {
+      margin-top: 20px;
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #27ae60;
+      min-height: 1.6em;
+    }
+
+    #controls {
+      margin-top: 18px;
+      display: flex;
+      gap: 12px;
+    }
+
+    button {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      background: #2980b9;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover { background: #1f618d; transform: translateY(-1px); }
+    button.secondary { background: #7f8c8d; }
+    button.secondary:hover { background: #616a6b; }
+  </style>
+</head>
+<body>
+  <h1>Classic 15-Puzzle</h1>
+  <p class="subtitle">Arrange the tiles from 1 to 15. Click a tile next to the empty space to slide it.</p>
+
+  <div id="stats">
+    <div>Moves: <span id="moves">0</span></div>
+    <div>Time: <span id="timer">00:00</span></div>
+  </div>
+
+  <div id="board"></div>
+  <div id="message"></div>
+
+  <div id="controls">
+    <button onclick="newGame()">New Game</button>
+    <button class="secondary" onclick="solveDemo()">Show Solved</button>
+  </div>
+
+  <script>
+    const GOAL = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0];
+    const GOAL_STR = GOAL.join(',');
+    let board = [];
+    let moves = 0;
+    let timerInterval = null;
+    let startTime = null;
+
+    function formatTime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const s = String(totalSeconds % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function startTimer() {
+      stopTimer();
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        document.getElementById('timer').textContent = formatTime(Date.now() - startTime);
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function countInversions(tiles) {
+      const flat = tiles.filter(x => x !== 0);
+      let inv = 0;
+      for (let i = 0; i < flat.length; i++)
+        for (let j = i + 1; j < flat.length; j++)
+          if (flat[i] > flat[j]) inv++;
+      return inv;
+    }
+
+    function isSolvable(tiles) {
+      const inv = countInversions(tiles);
+      const emptyRow = Math.floor(tiles.indexOf(0) / 4); // 0-based from top
+      const emptyRowFromBottom = 3 - emptyRow;
+      return (inv % 2 === 0) === (emptyRowFromBottom % 2 === 1);
+    }
+
+    function shuffle() {
+      let t;
+      do {
+        t = [...GOAL];
+        for (let i = t.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [t[i], t[j]] = [t[j], t[i]];
+        }
+      } while (!isSolvable(t) || t.join(',') === GOAL_STR);
+      return t;
+    }
+
+    function newGame() {
+      board = shuffle();
+      moves = 0;
+      document.getElementById('moves').textContent = moves;
+      document.getElementById('message').textContent = '';
+      startTimer();
+      render();
+    }
+
+    function solveDemo() {
+      board = [...GOAL];
+      moves = 0;
+      document.getElementById('moves').textContent = moves;
+      document.getElementById('message').textContent = 'Solved state shown. Start a new game to play!';
+      stopTimer();
+      document.getElementById('timer').textContent = '00:00';
+      render();
+    }
+
+    function render() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      board.forEach((val, idx) => {
+        const tile = document.createElement('div');
+        tile.className = 'tile' + (val === 0 ? ' empty' : '');
+        tile.textContent = val === 0 ? '' : val;
+        if (val !== 0) tile.onclick = () => tryMove(idx);
+        boardEl.appendChild(tile);
+      });
+    }
+
+    function tryMove(idx) {
+      const emptyIdx = board.indexOf(0);
+      const row = Math.floor(idx / 4), col = idx % 4;
+      const eRow = Math.floor(emptyIdx / 4), eCol = emptyIdx % 4;
+      const adjacent = (row === eRow && Math.abs(col - eCol) === 1) ||
+                       (col === eCol && Math.abs(row - eRow) === 1);
+      if (!adjacent) return;
+
+      [board[idx], board[emptyIdx]] = [board[emptyIdx], board[idx]];
+      moves++;
+      document.getElementById('moves').textContent = moves;
+      render();
+
+      if (board.join(',') === GOAL_STR) {
+        stopTimer();
+        document.getElementById('message').textContent = `🎉 Solved in ${moves} moves!`;
+      }
+    }
+
+    newGame();
+  </script>
+</body>
+</html>
