@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>15-Tile Puzzle</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', sans-serif;
+      color: #eee;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      margin-bottom: 16px;
+      letter-spacing: 2px;
+      color: #e0aaff;
+    }
+
+    #info {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+
+    #info span { font-weight: bold; color: #c77dff; }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      width: min(92vw, 380px);
+      height: min(92vw, 380px);
+      background: #16213e;
+      padding: 10px;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .tile {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: clamp(1.2rem, 5vw, 1.8rem);
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      background: #4361ee;
+      color: #fff;
+      transition: transform 0.1s, background 0.2s;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    }
+
+    .tile:hover { background: #7209b7; transform: scale(1.04); }
+    .tile.empty { background: transparent; box-shadow: none; cursor: default; }
+    .tile.empty:hover { background: transparent; transform: none; }
+
+    #message {
+      margin-top: 18px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #06d6a0;
+      min-height: 1.6em;
+      letter-spacing: 1px;
+    }
+
+    #btn {
+      margin-top: 18px;
+      padding: 12px 32px;
+      border: none;
+      border-radius: 8px;
+      background: #7209b7;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.2s;
+    }
+
+    #btn:hover { background: #560bad; }
+  </style>
+</head>
+<body>
+  <h1>15-Tile Puzzle</h1>
+  <div id="info">Moves: <span id="moves">0</span></div>
+  <div id="board"></div>
+  <div id="message"></div>
+  <button id="btn" onclick="newGame()">New Game</button>
+
+  <script>
+    const GOAL = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0];
+    const GOAL_STR = GOAL.join(',');
+    let board = [], moves = 0;
+
+    function countInversions(tiles) {
+      const flat = tiles.filter(x => x !== 0);
+      let inv = 0;
+      for (let i = 0; i < flat.length; i++)
+        for (let j = i + 1; j < flat.length; j++)
+          if (flat[i] > flat[j]) inv++;
+      return inv;
+    }
+
+    function isSolvable(tiles) {
+      const inv = countInversions(tiles);
+      const emptyRow = Math.floor(tiles.indexOf(0) / 4); // 0-based from top
+      const emptyRowFromBottom = 3 - emptyRow;
+      // For 4x4: solvable if (inv even && blank on odd row from bottom)
+      //                    or (inv odd  && blank on even row from bottom)
+      return (inv % 2 === 0) === (emptyRowFromBottom % 2 === 1);
+    }
+
+    function shuffle() {
+      let t;
+      do {
+        t = [...GOAL];
+        for (let i = t.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [t[i], t[j]] = [t[j], t[i]];
+        }
+      } while (!isSolvable(t) || t.join(',') === GOAL_STR);
+      return t;
+    }
+
+    function newGame() {
+      board = shuffle();
+      moves = 0;
+      render();
+    }
+
+    function render() {
+      document.getElementById('moves').textContent = moves;
+      document.getElementById('message').textContent = '';
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      board.forEach((val, idx) => {
+        const tile = document.createElement('div');
+        tile.className = 'tile' + (val === 0 ? ' empty' : '');
+        tile.textContent = val === 0 ? '' : val;
+        if (val !== 0) tile.onclick = () => tryMove(idx);
+        boardEl.appendChild(tile);
+      });
+    }
+
+    function tryMove(idx) {
+      const emptyIdx = board.indexOf(0);
+      const row = Math.floor(idx / 4), col = idx % 4;
+      const eRow = Math.floor(emptyIdx / 4), eCol = emptyIdx % 4;
+      const adjacent = (row === eRow && Math.abs(col - eCol) === 1) ||
+                       (col === eCol && Math.abs(row - eRow) === 1);
+      if (!adjacent) return;
+      [board[idx], board[emptyIdx]] = [board[emptyIdx], board[idx]];
+      moves++;
+      render();
+      if (board.join(',') === GOAL_STR) {
+        document.getElementById('message').textContent = '🎉 Puzzle Solved!';
+      }
+    }
+
+    newGame();
+  </script>
+</body>
+</html>
